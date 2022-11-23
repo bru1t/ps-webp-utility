@@ -14,11 +14,6 @@ $FlagVariableStatus = 1
 # 1 - user
 # 2 - all
 
-### System bit
-$SystemBit = 64
-# 64 - 64bit
-# 86 - 32bit
-
 ### Temporary files delete mode
 $TempDeleteMode = 0
 # 0 - delete all
@@ -34,6 +29,18 @@ function Write-Copyright {
     Write-Host ">> WebP PowerShell Installer"
     Write-Host "> Author: (c) Alexey `"bru1t`" Kuznetsov"
     Write-Host "> GitHub: https://github.com/bru1t"
+}
+
+function Get-Architecture {
+    
+    switch ([Environment]::Is64BitOperatingSystem) {
+        $true  { 64; break }
+        $false { 32; break }
+        default {
+            (Get-WmiObject -Class Win32_OperatingSystem).OSArchitecture -replace '\D'
+        }
+    }
+
 }
 
 function Test-IsPathVariable([string]$Path) {
@@ -168,7 +175,7 @@ function Get-WebPLibLastVersionName {
     
     $WebsiteUrl = Invoke-WebRequest -UseBasicParsing -Uri "$WebsiteDownloadUrl/index.html"
     $websiteDownloadTableParseTemp = $WebsiteUrl.links |`
-                                     Where-Object { $_.tagName -eq 'A' -and $_.href.ToLower().Contains("-windows-x$SystemBit.zip") -and $_.href.ToLower().EndsWith(".zip") } |`
+                                     Where-Object { $_.tagName -eq 'A' -and $_.href.ToLower().Contains("-windows-x$(Get-Architecture).zip") -and $_.href.ToLower().EndsWith(".zip") } |`
                                      Sort-Object href -desc |`
                                      Select-Object href -first 1
     $WebsiteDownloadTableParseTemp = $WebsiteDownloadTableParseTemp.href.ToString()
@@ -280,7 +287,7 @@ if (!(Test-InstallationWebPLib "$TempDirPath\$Filename" )) {
     Write-Host "[LOG] Program is already installed."
 }
 
-Remove-LibWebPTemp $Filename 
+Remove-LibWebPTemp $Filename
 
 Write-Host "`n[TASK COMPLETED]`n"
 
