@@ -1,4 +1,5 @@
 #Requires -Version 5.0
+Set-StrictMode -Version latest;
 
 ################################################## GLOBAL VARIABLES / SETTINGS
 
@@ -23,12 +24,40 @@ $TempDeleteMode = 0
 ### Package website URL
 $WebsiteDownloadUrl = 'https://storage.googleapis.com/downloads.webmproject.org/releases/webp'
 
+### Log mode
+$LogOff = 0
+# 0 - on
+# 1 - off
+
 ################################################## FUNCTIONS
 
 function Write-Copyright {
-    Write-Host ">> WebP PowerShell Installer"
-    Write-Host "> Author: (c) Alexey `"bru1t`" Kuznetsov"
-    Write-Host "> GitHub: https://github.com/bru1t"
+    Write-LogMessage ">> WebP PowerShell Installer" -MessageType Info -LogMode 0
+    Write-LogMessage "> Author: (c) Alexey `"bru1t`" Kuznetsov" -MessageType Info -LogMode 0
+    Write-LogMessage "> GitHub: https://github.com/bru1t" -MessageType Info -LogMode 0
+}
+
+enum MessageTypes {
+    Empty
+    Success
+    Warning
+    Error
+    Info
+}
+
+function Write-LogMessage([string]$LogMessage, [MessageTypes]$MessageType, [int]$LogMode = $LogOff) {
+
+    if ($LogMode) {return}
+
+    switch ($MessageType) {
+        Empty {Write-Host $LogMessage}
+        Success {Write-Host "[SUCCESS]"$LogMessage -ForegroundColor Green}
+        Warning {Write-Host "[WARNING]"$LogMessage -ForegroundColor Yellow}
+        Error {Write-Host "[ERROR]"$LogMessage -ForegroundColor Red}
+        Info {Write-Host "[INFO]"$LogMessage}
+        Default {Write-Host "[LOG]"$LogMessage}
+    }
+
 }
 
 function Get-Architecture {
@@ -45,23 +74,23 @@ function Get-Architecture {
 
 function Test-IsPathVariable([string]$Path) {
 
-    Write-Host "[LOG] Start Environment Variable checking..."
-    Write-Host "[LOG] Check Path - `"$Path`""
+    Write-LogMessage "Start Environment Variable checking..."
+    Write-LogMessage "Check Path - `"$Path`""
     
     $UserPathVar = [Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User)
     $SystemPathVar = [Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine)
 
     if ($UserPathVar.contains("$Path")) {
-        Write-Host "[LOG] `"$Path`" is User Variable!"
+        Write-LogMessage "`"$Path`" is User Variable!" -MessageType Success
         return 1
     }
 
     if ($SystemPathVar.contains("$Path")) {
-        Write-Host "[LOG] `"$Path`" is System Variable!"
+        Write-LogMessage "`"$Path`" is System Variable!" -MessageType Success
         return 2
     }
 
-    Write-Host "[LOG] `"$Path`" is not a Variable!"
+    Write-LogMessage "`"$Path`" is not a Variable!" -MessageType Warning
     return 0
 
 }
@@ -70,33 +99,33 @@ function Copy-AllWebPData([string]$InputPath = $TempDirPath) {
 
     if (Test-Path -Path $InputPath) {
 
-        Write-Host "[LOG] Start copying data..."
+        Write-LogMessage "Start copying data..."
         
         if (Test-Path -Path $MainDirPath) {
             Remove-Item -Path $MainDirPath -Force -Recurse
-            Write-Host "[LOG] Workspace has been cleared."
+            Write-LogMessage "Workspace has been cleared." -MessageType Success
         }
 
         New-Item -ItemType "directory" -Path $MainDirPath | Out-Null
-        Write-Host "[LOG] Main directory created."
+        Write-LogMessage "Main directory created."
 
         Copy-Item -Path "$InputPath\*" -Destination $MainDirPath -Recurse -Force
-        Write-Host "[LOG] Temp data has been transfered."
+        Write-LogMessage "Temp data has been transfered."
 
         Remove-Item -Path "$MainDirPath\*" -Include *.* -Force -Confirm:$false
-        Write-Host "[LOG] Threw out the trash."
+        Write-LogMessage "Threw out the trash."
 
-        Write-Host "[LOG] Data copying is complete."
+        Write-LogMessage "Data copying is complete." -MessageType Success
 
     } else {
-        Write-Host "[LOG] Entered data path is not valid!"
+        Write-LogMessage "Entered data path is not valid!" -MessageType Error
     }
 
 }
 
 function Test-InstallationWebPLib([string]$LibDirPath = $TempDirPath) {
 
-    Write-Host "[LOG] Start Installation check..."
+    Write-LogMessage "Start Installation check..."
 
     # VARIABLE CHECK
     $FlagIsProgramFullInstalled = Test-IsPathVariable("$MainDirPath\bin")
@@ -118,9 +147,9 @@ function Test-InstallationWebPLib([string]$LibDirPath = $TempDirPath) {
     $FlagIsProgramFullInstalled = $FlagIsProgramFullInstalled -and $FlagBinFolderDifference -and $FlagIncludeFolderDifference -and $FlagLibFolderDifference
     
     if (!($FlagIsProgramFullInstalled)) {
-        Write-Host "[LOG] The necessary data is missing!"
+        Write-LogMessage "The necessary data is missing!" -MessageType Error
     } else {
-        Write-Host "[LOG] All necessary data is intact."
+        Write-LogMessage "All necessary data is intact." -MessageType Success
     }
     
     return $FlagIsProgramFullInstalled
@@ -131,7 +160,7 @@ function Add-PathToEnvironmentVariable([string]$Path) {
 
     if (!(Test-IsPathVariable("$Path"))) {
 
-        Write-Host "[LOG] Start adding Environment Variable..."
+        Write-LogMessage "Start adding Environment Variable..."
 
         switch ($FlagVariableStatus) {
 
@@ -140,8 +169,8 @@ function Add-PathToEnvironmentVariable([string]$Path) {
                 $Path = [Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::User) + $Path + [IO.Path]::PathSeparator
                 [Environment]::SetEnvironmentVariable("Path", $Path, [System.EnvironmentVariableTarget]::User)
             
-                Write-Host "[LOG] Path added for User."
-                exit
+                Write-LogMessage "Path added for User." -MessageType Success
+                return
 
             }
 
@@ -150,28 +179,28 @@ function Add-PathToEnvironmentVariable([string]$Path) {
                 $Path = [Environment]::GetEnvironmentVariable("PATH", [System.EnvironmentVariableTarget]::Machine) + $Path + [IO.Path]::PathSeparator
                 [Environment]::SetEnvironmentVariable("Path", $Path, [System.EnvironmentVariableTarget]::Machine)
             
-                Write-Host "[LOG] Path added for All."
-                exit
+                Write-LogMessage "Path added for All." -MessageType Success
+                return
 
             }
 
             Default {
-                Write-Host "[LOG] Path not added!"
+                Write-LogMessage "Path not added!" -MessageType Error
             }
 
         }
 
-        Write-Host "[LOG] Path not added!"
+        Write-LogMessage "Path not added!" -MessageType Error
 
     } else {
-        Write-Host "[LOG] Path already exists."
+        Write-LogMessage "Path already exists." -MessageType Warning
     }
 
 }
 
 function Get-WebPLibLastVersionName {
 
-    Write-Host "[LOG] Receiving information about the latest version of the library..."
+    Write-LogMessage "Receiving information about the latest version of the library..."
     
     $WebsiteUrl = Invoke-WebRequest -UseBasicParsing -Uri "$WebsiteDownloadUrl/index.html"
     $websiteDownloadTableParseTemp = $WebsiteUrl.links |`
@@ -183,8 +212,8 @@ function Get-WebPLibLastVersionName {
     $FilenamePosition = $WebsiteDownloadTableParseTemp.IndexOf("libwebp-")
     $Filename = $WebsiteDownloadTableParseTemp.Substring($FilenamePosition)
 
-    Write-Host "[LOG] Receiving information is complete."
-    Write-Host "[LOG] Latest version of the library: $Filename"
+    Write-LogMessage "Receiving information is complete." -MessageType Success
+    Write-LogMessage "Latest version of the library: $Filename"
 
     return $Filename
 
@@ -192,7 +221,7 @@ function Get-WebPLibLastVersionName {
 
 function Receive-WebPLib([string]$LibVersionFullName, [string]$Path = $TempDirPath) {
 
-    Write-Host "[LOG] Starting a library download..."
+    Write-LogMessage "Starting a library download..."
 
     if (!(Test-Path -Path $Path)) {
         New-Item -ItemType "directory" -Path $Path | Out-Null
@@ -201,11 +230,11 @@ function Receive-WebPLib([string]$LibVersionFullName, [string]$Path = $TempDirPa
     Invoke-WebRequest "$WebsiteDownloadUrl\$LibVersionFullName.zip" -OutFile "$Path\$LibVersionFullName.zip"
 
     if (!(Test-Path -Path "$Path\$LibVersionFullName.zip" -PathType leaf)) {
-        Write-Host "[LOG] Download error occurred!"
+        Write-LogMessage "Download error occurred!" -MessageType Error
         return $false
     }
 
-    Write-Host "[LOG] Library download is complete."
+    Write-LogMessage "Library download is complete." -MessageType Success
 
     return $true
 
@@ -213,35 +242,35 @@ function Receive-WebPLib([string]$LibVersionFullName, [string]$Path = $TempDirPa
 
 function Expand-WebPLib([string]$Path) {
 
-    Write-Host "[LOG] Starting to unpack the archive..."
+    Write-LogMessage "Starting to unpack the archive..."
 
     if (!(Test-Path -Path $Path -PathType leaf)) {
-        Write-Host "[LOG] The required archive was not found!"
+        Write-LogMessage "The required archive was not found!" -MessageType Error
         return $false
     }
 
     Expand-Archive -Path $Path -DestinationPath $TempDirPath -Force
-    Write-Host "[LOG] Unpacking completed."
+    Write-LogMessage "Unpacking completed." -MessageType Success
     return $true
 
 }
 
 function Remove-LibWebPTemp([string]$Filename,[int]$Mode = $TempDeleteMode) {
 
-    Write-Host "[LOG] Starting to delete temporary files..."
+    Write-LogMessage "Starting to delete temporary files..."
 
     switch ($Mode) {
 
         1 {
             Remove-Item -Path "$TempDirPath/$Filename" -Recurse
-            Write-Host "[LOG] Deletion was completed."
-            exit
+            Write-LogMessage "Deletion was completed." -MessageType Success
+            return
         }
 
         2 {
             Remove-Item -Path "$TempDirPath/$Filename.zip"
-            Write-Host "[LOG] Deletion was completed."
-            exit
+            Write-LogMessage "Deletion was completed." -MessageType Success
+            return
         }
 
         Default {
@@ -252,19 +281,19 @@ function Remove-LibWebPTemp([string]$Filename,[int]$Mode = $TempDeleteMode) {
                 Remove-Item -Path $TempDirPath -Recurse
             }
 
-            Write-Host "[LOG] Deletion was completed."
-            exit
+            Write-LogMessage "Deletion was completed." -MessageType Success
+            return
         }
 
     }
 
-    Write-Host "[LOG] Files for deletion not found."
+    Write-LogMessage "Files for deletion not found." -MessageType Warning
     
 }
 
 ################################################## MAIN
 
-Write-Host "`n[TASK START]"
+Write-Host "`n[TASK START]" -ForegroundColor Yellow
 Write-Copyright
 Write-Host ""
 
@@ -278,17 +307,17 @@ $Filename = $FullFilename.Substring(0, $FullFilename.Length - 4)
 # INSTALL
 if (!(Test-InstallationWebPLib "$TempDirPath\$Filename" )) {
 
-    Write-Host "[LOG] Program installation is required"
+    Write-LogMessage "Program installation is required"
 
     Copy-AllWebPData "$TempDirPath\$Filename" 
     Add-PathToEnvironmentVariable "$MainDirPath\bin" 
 
 } else {
-    Write-Host "[LOG] Program is already installed."
+    Write-LogMessage "Program is already installed." -MessageType Warning
 }
 
 Remove-LibWebPTemp $Filename
 
-Write-Host "`n[TASK COMPLETED]`n"
+Write-Host "`n[TASK COMPLETED]`n" -ForegroundColor Yellow
 
 Pause

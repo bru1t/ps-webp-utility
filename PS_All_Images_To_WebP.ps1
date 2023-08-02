@@ -1,4 +1,5 @@
 #Requires -Version 5.0
+Set-StrictMode -Version latest;
 
 ################################################## GLOBAL VARIABLES / SETTINGS
 
